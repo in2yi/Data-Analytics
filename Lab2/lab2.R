@@ -1,59 +1,65 @@
-library(ggplot2)
+library("ggplot2")
+library("readr")
 
-# Load data
-housing_data <- read.csv("NY-House-Dataset.csv")
+## read dataset
+NY_House_Dataset <- read_csv("NY-House-Dataset.csv")
 
-# Data cleaning: Remove outliers (top 1% and bottom 1% for price and property size)
-outlier_thresholds <- function(x) {
-  q <- quantile(x, probs = c(0.1, 0.90), na.rm = TRUE)
-  x[x < q[1] | x > q[2]] <- NA
-  return(x)
-}
+dataset <- NY_House_Dataset
 
-housing_data$PRICE <- outlier_thresholds(housing_data$PRICE)
-housing_data$PROPERTYSQFT <- outlier_thresholds(housing_data$PROPERTYSQFT)
+## Data Cleaning
+# Removing outliers in PRICE
+dataset <- dataset[dataset$PRICE < 19500000,]
 
-# Remove rows with NA values
-housing_data <- na.omit(housing_data)
+# Removing specific erroneous property size
+dataset <- dataset[dataset$PROPERTYSQFT != 2184.207862,]
 
-# Fit three linear models
-model1 <- lm(PRICE ~ PROPERTYSQFT, data = housing_data)
-model2 <- lm(PRICE ~ PROPERTYSQFT + BEDS, data = housing_data)
-model3 <- lm(PRICE ~ PROPERTYSQFT + BEDS + BATH, data = housing_data)
+# Removing outliers in BEDS
+dataset <- dataset[dataset$BEDS <= quantile(dataset$BEDS, 0.99),]
 
-# Print model summaries and models
-print(model1)
-print(model2)
-print(model3)
+# Removing outliers in BATH
+dataset <- dataset[dataset$BATH <= quantile(dataset$BATH, 0.99),]
+
+# Removing rows with NA values
+dataset <- na.omit(dataset)
+
+## Fit three separate linear models
+# Model 1: PRICE ~ PROPERTYSQFT
+model1 <- lm(PRICE ~ PROPERTYSQFT, data = dataset)
 summary(model1)
+
+# Model 2: PRICE ~ BEDS
+model2 <- lm(PRICE ~ BEDS, data = dataset)
 summary(model2)
+
+# Model 3: PRICE ~ BATH
+model3 <- lm(PRICE ~ BATH, data = dataset)
 summary(model3)
 
-# Function to generate plots
-plot_model <- function(model, x_var, data, title) {
-  ggplot(data, aes_string(x = x_var, y = "PRICE")) +
-    geom_point() +
-    geom_smooth(method = "lm", se = FALSE, col = "red") +
-    ggtitle(title)
-}
+## Scatter plots with best fit line
+# Model 1
+ggplot(dataset, aes(x = PROPERTYSQFT, y = PRICE)) +
+  geom_point() +
+  stat_smooth(method = "lm", col="red") +
+  ggtitle("Model 1: PRICE vs PROPERTYSQFT")
 
-# Scatter plot of residuals
-plot_residuals <- function(model, title) {
-  residuals <- resid(model)
-  fitted_values <- fitted(model)
-  ggplot(data.frame(Fitted = fitted_values, Residuals = residuals),
-         aes(x = Fitted, y = Residuals)) +
-    geom_point() +
-    geom_hline(yintercept = 0, col = "red") +
-    ggtitle(title)
-}
+# Model 2
+ggplot(dataset, aes(x = BEDS, y = PRICE)) +
+  geom_point() +
+  stat_smooth(method = "lm", col="red") +
+  ggtitle("Model 2: PRICE vs BEDS")
 
-# Generate line graphs with all data points for each model
-plot_model(model1, "PROPERTYSQFT", housing_data, "Model 1: Price vs PropertySqFt")
-plot_model(model2, "BEDS", housing_data, "Model 2: Price vs Beds")
-plot_model(model3, "BATH", housing_data, "Model 3: Price vs Bath")
+# Model 3
+ggplot(dataset, aes(x = BATH, y = PRICE)) +
+  geom_point() +
+  stat_smooth(method = "lm", col="red") +
+  ggtitle("Model 3: PRICE vs BATH")
 
-# Generate residual plots
-plot_residuals(model1, "Model 1 Residuals")
-plot_residuals(model2, "Model 2 Residuals")
-plot_residuals(model3, "Model 3 Residuals")
+## Residual plots
+# Model 1 Residuals
+plot(model1$residuals, main="Residuals for Model 1", ylab="Residuals", xlab="Index")
+
+# Model 2 Residuals
+plot(model2$residuals, main="Residuals for Model 2", ylab="Residuals", xlab="Index")
+
+# Model 3 Residuals
+plot(model3$residuals, main="Residuals for Model 3", ylab="Residuals", xlab="Index")
